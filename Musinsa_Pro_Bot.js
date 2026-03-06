@@ -508,35 +508,37 @@ async function runSniper() {
         try {
             console.log(`🖱️ [Action] "${CONFIG.PAYMENT_METHOD}" 자동 매칭 및 결제 시도...`);
 
-            // 모든 프레임에서 요소 찾기용 헬퍼
-            const findAndClick = async (selectorOrText, isText = false) => {
-                const frames = page.frames();
-                for (const frame of frames) {
-                    try {
-                        if (isText) {
-                            // 텍스트로 찾기 (지능형)
-                            const found = await frame.evaluate((txt) => {
-                                const els = Array.from(document.querySelectorAll('label, span, button, li, div'));
-                                // 일반적인 '무신사페이'뿐만 아니라 'Pay' 아이콘 포함 케이스 대응
-                                const target = els.find(el =>
-                                    (el.innerText.includes(txt) || el.textContent.includes(txt)) &&
-                                    el.offsetParent !== null // 눈에 보이는 요소만
-                                );
-                                if (target) {
-                                    target.click();
+            // 모든 프레임에서 요소 찾기용 헬퍼 (재시도 로직 포함)
+            const findAndClick = async (selectorOrText, isText = false, timeout = 1000) => {
+                const startTime = Date.now();
+                while (Date.now() - startTime < 5000) { // 최대 5초간 재시도
+                    const frames = page.frames();
+                    for (const frame of frames) {
+                        try {
+                            if (isText) {
+                                const found = await frame.evaluate((txt) => {
+                                    const els = Array.from(document.querySelectorAll('label, span, button, li, div, a'));
+                                    const target = els.find(el =>
+                                        (el.innerText.trim().includes(txt) || el.textContent.trim().includes(txt)) &&
+                                        el.offsetParent !== null
+                                    );
+                                    if (target) {
+                                        target.click();
+                                        return true;
+                                    }
+                                    return false;
+                                }, selectorOrText);
+                                if (found) return true;
+                            } else {
+                                const el = await frame.waitForSelector(selectorOrText, { timeout }).catch(() => null);
+                                if (el && await el.isVisible()) {
+                                    await el.click();
                                     return true;
                                 }
-                                return false;
-                            }, selectorOrText);
-                            if (found) return true;
-                        } else {
-                            const el = await frame.waitForSelector(selectorOrText, { timeout: 1000 }).catch(() => null);
-                            if (el) {
-                                await el.click();
-                                return true;
                             }
-                        }
-                    } catch (e) { }
+                        } catch (e) { }
+                    }
+                    await page.waitForTimeout(500);
                 }
                 return false;
             };
@@ -593,18 +595,25 @@ async function runSniper() {
                 "#btn_pay",
                 ".btn_pay",
                 ".payment-button",
+                "button[id*='pay']",
+                "button[class*='payment']",
                 "form[name='orderForm'] button[type='submit']"
             ];
 
-            await page.waitForTimeout(800); // 최종 금액 계산 및 버튼 활성화 대기
+            await page.waitForTimeout(1500); // 최종 금액 계산 및 버튼 활성화 대기 시간 상향
 
             let clicked = false;
-            for (const sel of payButtonSelectors) {
-                if (await findAndClick(sel, sel.includes('has-text'))) {
-                    clicked = true;
-                    console.log(`🚀 [Action] 최종 결제하기 버튼('${sel}') 타격 완료!`);
-                    break;
+            // 여러 셀렉터로 순회하며 클릭 시도 (최대 3회 메인 루프)
+            for (let retry = 0; retry < 3; retry++) {
+                for (const sel of payButtonSelectors) {
+                    if (await findAndClick(sel, sel.includes('has-text'), 500)) {
+                        clicked = true;
+                        console.log(`🚀 [Action] 최종 결제하기 버튼('${sel}') 타격 완료!`);
+                        break;
+                    }
                 }
+                if (clicked) break;
+                await page.waitForTimeout(1000);
             }
 
             if (!clicked) {
