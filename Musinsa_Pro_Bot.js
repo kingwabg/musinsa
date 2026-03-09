@@ -753,9 +753,14 @@ async function runCart() {
  * [GHOST] 전체 자동화 모드
  */
 async function runGhost() {
-    console.log("\n👻 [Mode: GHOST] 처음부터 끝까지 올인원 자동화를 시작합니다.");
-    const harvester = new SessionHarvester();
-    const { cookies, page, browser } = await harvester.login();
+    if (!globalSession.cookies) {
+        console.log("\n👻 [Mode: GHOST] 세션이 없습니다. 자동 로그인을 먼저 수행합니다.");
+        await runHarvest();
+    } else {
+        console.log("\n👻 [Mode: GHOST] 기존 세션을 사용하여 올인원 타격을 시작합니다.");
+    }
+
+    const { cookies, page, browser } = globalSession;
 
     const client = new MusinsaUltimateClient(cookies);
     const optionData = await client.getOptionsByApi(true); // silent
@@ -922,13 +927,6 @@ async function runCheck() {
 
     // 점검을 실행하기 전에 옵션을 먼저 다시 묻도록 처리
     await configureOrder();
-
-    if (!globalSession.cookies) {
-        console.log("\n⚠️ 세션이 없습니다. 백그라운드 로그인을 진행합니다...");
-        await runHarvest();
-    } else {
-        console.log("\n✅ 현재 로그인 세션이 정상적으로 유지되고 있습니다.");
-    }
 
     if (!globalSession.cookies) {
         console.log("❌ 로그인이 완료되지 않아 점검을 중단합니다.");
@@ -1131,7 +1129,15 @@ async function mainMenu() {
     // 봇 구동 시 보안 체크
     await checkSecureSetup();
 
-    // 봇 구동 시 타겟 정보 먼저 설정 (터미널 입력 대기)
+    // 메뉴 진입 전, 세션(Login)부터 필수 확보하여 권한 부족(401) 및 품절 오탐지 방지
+    if (!globalSession.cookies) {
+        console.log("\n" + "═".repeat(60));
+        console.log(" 📡 [초기화] 안전하고 정확한 타겟 스캔을 위해 세션을 연결합니다.");
+        console.log("═".repeat(60));
+        await runHarvest();
+    }
+
+    // 세션 확보 후 타겟 정보 설정
     await configureOrder();
 
     while (true) {
