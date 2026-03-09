@@ -939,9 +939,6 @@ async function runCheck() {
 }
 
 async function configureOrder() {
-}
-
-async function configureOrder() {
     console.log("\n" + "═".repeat(50));
     console.log("       ⚙️ 타겟 및 주문 방식 설정 ⚙️       ");
     console.log("═".repeat(50));
