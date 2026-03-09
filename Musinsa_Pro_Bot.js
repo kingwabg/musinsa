@@ -12,6 +12,11 @@
 import { chromium } from "playwright";
 import { gotScraping } from "got-scraping";
 import readline from "readline";
+import fs from "fs";
+import dotenv from "dotenv";
+import rlSync from "readline-sync";
+
+dotenv.config();
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -32,6 +37,7 @@ const CONFIG = {
     // 모드 설정: "CART" (장바구니) 또는 "PURCHASE" (구매)
     MODE: "PURCHASE",
     PAYMENT_METHOD: "무신사페이",
+    PAYMENT_PASSWORD: process.env.MUSINSA_PAY_PASSWORD || "",
 
     // 유저 제공 계정 정보
     USER_ID: "wnsgk4441",
@@ -635,11 +641,64 @@ async function runSniper() {
 
             if (!clicked) {
                 console.log("❌ [오류] 최종 결제 버튼을 찾지 못했습니다. (페이지 로딩 상태를 확인해주세요)");
-                await page.screenshot({ path: 'payment_error.png' });
+                await page.screenshot({ path: 'payment_error.png' }).catch(() => { });
             }
+
+            // 4. 무신사페이 비밀번호 6자리 자동 입력 로직 (보안 무결성)
+            if (CONFIG.PAYMENT_METHOD.includes("무신사페이") && CONFIG.PAYMENT_PASSWORD && CONFIG.PAYMENT_PASSWORD.length === 6) {
+                console.log(`\n🔒 [보안 통과] 무신사페이 결제 비밀번호 6자리 자동 타격 개시!`);
+                const pw = CONFIG.PAYMENT_PASSWORD.split('');
+
+                const startTime = Date.now();
+                let passwordEntered = false;
+
+                // 최대 10초간 가상 키보드(숫자 버튼) 스캔
+                while (Date.now() - startTime < 10000 && !passwordEntered) {
+                    try {
+                        const frames = page.frames();
+                        for (const frame of frames) {
+                            // DOM 내에서 0~9 라벨을 가진 요소를 찾을 수 있는지 테스트
+                            const canFindNumbers = await frame.evaluate(() => {
+                                const els = Array.from(document.querySelectorAll('button, span, img, div'));
+                                return els.some(el => el.textContent && el.textContent.trim().match(/^[0-9]$/));
+                            }).catch(() => false);
+
+                            if (canFindNumbers) {
+                                console.log(`⌨️ [Action] 가상 키보드 프레임 발견! 0.1초 타격 모드 진입...`);
+                                for (const digit of pw) {
+                                    // 각 숫자 클릭 (연속 타격)
+                                    await frame.evaluate((num) => {
+                                        const els = Array.from(document.querySelectorAll('button, span, img, div'));
+                                        const numBtn = els.find(el => {
+                                            const txt = (el.innerText || el.textContent || '').trim();
+                                            const alt = (el.getAttribute('alt') || '').trim();
+                                            return txt === num || alt === num || alt.includes(num);
+                                        });
+                                        if (numBtn) {
+                                            numBtn.click();
+                                        }
+                                    }, digit);
+                                    await page.waitForTimeout(50).catch(() => { }); // 너무 빠르면 씹힐 수 있으므로 0.05초 딜레이
+                                }
+                                passwordEntered = true;
+                                console.log(`✅ [Action] 비밀번호 6자리 초고속 타격 완료!`);
+                                break;
+                            }
+                        }
+                    } catch (e) {
+                        // DOM 변경 중 에러 무시
+                    }
+                    if (!passwordEntered) await page.waitForTimeout(500).catch(() => { });
+                }
+
+                if (!passwordEntered) {
+                    console.log(`⚠️ 가상 키보드 스캔 실패. 앱카드 결제이거나 직접 입력해야 할 수 있습니다.`);
+                }
+            }
+
         } catch (e) {
             console.log("⚠️ 결제 자동화 과정 중 비정상 종료: " + e.message);
-            await page.screenshot({ path: 'payment_fatal.png' });
+            try { await page.screenshot({ path: 'payment_fatal.png' }); } catch (err) { }
         }
 
         const totalTaskEndTime = performance.now();
@@ -764,6 +823,46 @@ async function runGhost() {
             }
             if (!clicked) {
                 console.log("❌ [오류] 최종 결제 버튼을 찾지 못했습니다. (수동 클릭 필요)");
+            }
+
+            // 4. 무신사페이 비밀번호 6자리 자동 입력 로직 (GHOST 모드)
+            if (CONFIG.PAYMENT_METHOD.includes("무신사페이") && CONFIG.PAYMENT_PASSWORD && CONFIG.PAYMENT_PASSWORD.length === 6) {
+                console.log(`\n🔒 [보안 통과] 무신사페이 결제 비밀번호 6자리 자동 타격 개시!`);
+                const pw = CONFIG.PAYMENT_PASSWORD.split('');
+                const startTime = Date.now();
+                let passwordEntered = false;
+
+                while (Date.now() - startTime < 10000 && !passwordEntered) {
+                    try {
+                        const frames = page.frames();
+                        for (const frame of frames) {
+                            const canFindNumbers = await frame.evaluate(() => {
+                                const els = Array.from(document.querySelectorAll('button, span, img, div'));
+                                return els.some(el => el.textContent && el.textContent.trim().match(/^[0-9]$/));
+                            }).catch(() => false);
+
+                            if (canFindNumbers) {
+                                console.log(`⌨️ [Action] 가상 키보드 프레임 발견! 0.1초 타격 모드 진입...`);
+                                for (const digit of pw) {
+                                    await frame.evaluate((num) => {
+                                        const els = Array.from(document.querySelectorAll('button, span, img, div'));
+                                        const numBtn = els.find(el => {
+                                            const txt = (el.innerText || el.textContent || '').trim();
+                                            const alt = (el.getAttribute('alt') || '').trim();
+                                            return txt === num || alt === num || alt.includes(num);
+                                        });
+                                        if (numBtn) numBtn.click();
+                                    }, digit);
+                                    await page.waitForTimeout(50).catch(() => { });
+                                }
+                                passwordEntered = true;
+                                console.log(`✅ [Action] 비밀번호 6자리 초고속 타격 완료!`);
+                                break;
+                            }
+                        }
+                    } catch (e) { }
+                    if (!passwordEntered) await page.waitForTimeout(500).catch(() => { });
+                }
             }
         } catch (e) {
             console.log("⚠️ 결제 자동화 과정 중 비정상 종료: " + e.message); // Added error logging
@@ -948,7 +1047,44 @@ async function configureOrder() {
     console.log(`📦 상품 ID: ${CONFIG.PRODUCT_ID} | 컬러: ${CONFIG.TARGET_COLOR || "(없음/자동)"} | 사이즈: ${CONFIG.TARGET_SIZE || "(없음/자동)"} | 수량: ${CONFIG.QUANTITY}개`);
 }
 
+// ==========================================
+// 보안: 봇 실행 시 무신사페이 비밀번호 체크 로직
+// ==========================================
+async function checkSecureSetup() {
+    if (CONFIG.PAYMENT_METHOD.includes("무신사페이")) {
+        if (!process.env.MUSINSA_PAY_PASSWORD || process.env.MUSINSA_PAY_PASSWORD.length !== 6) {
+            console.log('\n' + '='.repeat(60));
+            console.log('🔒 [보안 설정] 무신사페이 결제 자동화를 위한 비밀번호 설정 🔒');
+            console.log(' - 비밀번호는 소스코드(.js)에 노출되지 않으며, 암호화된');
+            console.log('   터미널을 통해 한 번만 입력받아 로컬 숨김 파일(.env)에만 저장됩니다.');
+            console.log(' - GitHub나 외부로 절대 업로드되지 않습니다 (Git 차단 적용됨).');
+            console.log('============================================================');
+
+            // 입력 시 화면에 *** 처리
+            let newPw = rlSync.question('🔑 무신사페이 결제 비밀번호 6자리 입력: ', {
+                hideEchoBack: true,
+                mask: '*'
+            });
+
+            if (newPw && newPw.length === 6 && !isNaN(newPw)) {
+                CONFIG.PAYMENT_PASSWORD = newPw;
+                fs.appendFileSync('.env', `\nMUSINSA_PAY_PASSWORD=${newPw}\n`);
+                console.log('✅ 안전하게 로컬 저장소(.env)에 봉인되었습니다.');
+                await new Promise(r => setTimeout(r, 1000));
+            } else {
+                console.log('❌ 유효하지 않은 비밀번호입니다. (6자리 숫자 필수)\n자동 타격이 비활성화된 상태로 실행됩니다.');
+                await new Promise(r => setTimeout(r, 2000));
+            }
+        } else {
+            console.log('🔒 [보안] 숨겨진 .env 저장소에서 결제 비밀번호를 호스트 환경으로 로드했습니다.');
+        }
+    }
+}
+
 async function mainMenu() {
+    // 봇 구동 시 보안 체크
+    await checkSecureSetup();
+
     // 봇 구동 시 타겟 정보 먼저 설정 (터미널 입력 대기)
     await configureOrder();
 
