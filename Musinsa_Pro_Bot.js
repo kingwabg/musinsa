@@ -484,12 +484,12 @@ async function runSniper() {
                 // orderNo 방식은 order 서브도메인 사용
                 orderLink = `https://order.musinsa.com/order/form?orderNo=${orderNo}`;
             } else if (cartIds && Array.isArray(cartIds) && cartIds.length > 0) {
-                // cartIds 방식은 일반 도메인 사용 (404 방지)
-                orderLink = `https://www.musinsa.com/order/form?cartIds=${cartIds.join(",")}`;
+                // cartIds 방식은 무신사 신규 결제 도메인(checkout) 사용
+                orderLink = `https://checkout.musinsa.com/order/form?cartIds=${cartIds.join(",")}`;
             }
         }
 
-        // 상대 경로인 경우 기본 도메인 붙여주기 (www로 통일하여 세션 유실 방지)
+        // 상대 경로인 경우 기본 도메인 붙여주기
         if (orderLink && orderLink.startsWith("/")) {
             orderLink = `https://www.musinsa.com${orderLink}`;
         }
@@ -773,7 +773,23 @@ async function runGhost() {
 
     if (result.meta?.result === "SUCCESS") {
         console.log(`✅ [Success] 성공! 결제창으로 이동합니다.`);
-        const orderLink = result.data?.link || `https://order.musinsa.com/order/form?orderNo=${result.data?.orderNo}`;
+
+        let orderLink = result.data?.link;
+        if (!orderLink) {
+            const orderNo = result.data?.orderNo || result.data?.orderId;
+            const cartIds = result.data?.cartIds;
+
+            if (orderNo) {
+                orderLink = `https://order.musinsa.com/order/form?orderNo=${orderNo}`;
+            } else if (cartIds && Array.isArray(cartIds) && cartIds.length > 0) {
+                orderLink = `https://checkout.musinsa.com/order/form?cartIds=${cartIds.join(",")}`;
+            }
+        }
+
+        if (orderLink && orderLink.startsWith("/")) {
+            orderLink = `https://www.musinsa.com${orderLink}`;
+        }
+
         await page.goto(orderLink, { waitUntil: 'load' });
         await page.waitForLoadState('load'); // Added as per instruction
         await page.waitForLoadState('networkidle').catch(() => { }); // 네트워크 안정화 대기
