@@ -1060,8 +1060,9 @@ async function checkSecureSetup() {
             console.log(' - GitHub나 외부로 절대 업로드되지 않습니다 (Git 차단 적용됨).');
             console.log('============================================================');
 
-            // 입력 시 화면에 *** 처리
-            let newPw = rlSync.question('🔑 무신사페이 결제 비밀번호 6자리 입력: ', {
+            // 입력 시 화면에 *** 처리 (Windows 터미널 한글 깨짐 방지를 위해 분리)
+            console.log('\n🔑 무신사페이 결제 비밀번호 6자리를 입력하세요:');
+            let newPw = rlSync.question('> ', {
                 hideEchoBack: true,
                 mask: '*'
             });
