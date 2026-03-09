@@ -11,19 +11,16 @@
 
 import { chromium } from "playwright";
 import { gotScraping } from "got-scraping";
-import readline from "readline";
 import fs from "fs";
 import dotenv from "dotenv";
 import rlSync from "readline-sync";
 
 dotenv.config();
 
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
-
-const ask = (query) => new Promise((resolve) => rl.question(query, resolve));
+// 비동기 입력을 모두 동기식(readline-sync)으로 교체하여 입력 지연(엔터 씹힘) 버그 해결
+const ask = (query) => {
+    return rlSync.question(query);
+};
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  설정 (환경 변수 또는 인자)
@@ -441,10 +438,10 @@ async function runSniper() {
                 }
             }
         } else {
-            await ask("\n⌨️  [ENTER] 키를 누르는 즉시 서버로 타격을 시작합니다!! ");
+            ask("\n⌨️  [ENTER] 키를 누르는 즉시 서버로 타격을 시작합니다!! ");
         }
     } else {
-        await ask("\n⌨️  [ENTER] 키를 누르는 즉시 서버로 타격을 시작합니다!! ");
+        ask("\n⌨️  [ENTER] 키를 누르는 즉시 서버로 타격을 시작합니다!! ");
     }
 
     const totalTaskStartTime = performance.now(); // 전체 공정 타이머 시작
@@ -710,7 +707,7 @@ async function runSniper() {
     } else {
         console.log(`\n❌ [STRIKE FAILED] 서버 응답: ${result.meta?.message}`);
     }
-    await ask("\n⏎ 확인하셨으면 [엔터 키]를 눌러 메뉴로 돌아가세요...");
+    ask("\n⏎ 확인하셨으면 [엔터 키]를 눌러 메뉴로 돌아가세요...");
 }
 
 /**
@@ -744,7 +741,7 @@ async function runCart() {
     } else {
         console.log(`\n❌ [CART FAILED] 서버 응답: ${result.meta?.message}`);
     }
-    await ask("\n⏎ 확인하셨으면 [엔터 키]를 눌러 메뉴로 돌아가세요...");
+    ask("\n⏎ 확인하셨으면 [엔터 키]를 눌러 메뉴로 돌아가세요...");
 }
 
 /**
@@ -780,24 +777,44 @@ async function runGhost() {
         try {
             console.log(`🖱️ [Action] ${CONFIG.PAYMENT_METHOD} 자동 매칭 시도...`);
 
-            // 1. ID로 직접 타격 (MPAY: 무신사페이)
-            const payOk = await page.evaluate((method) => {
-                const targetId = method === '무신사페이' ? 'method-MPAY' : 'method-MUSINSAPAY_MONEY';
-                const el = document.getElementById(targetId);
-                if (el) {
-                    el.click();
-                    return true;
-                }
-
-                // fallback: 텍스트로 찾기
-                const labels = Array.from(document.querySelectorAll('label, span, button, li'));
-                const target = labels.find(l => l.innerText.includes(method) && l.offsetParent !== null);
-                if (target) {
-                    target.click();
-                    return true;
+            // GHOST 모드 결제수단 선택 고도화 (Sniper와 동일한 재시도 로직 적용)
+            const findAndClickMethod = async (selectorOrText, isText = false, timeout = 1000) => {
+                const startTime = Date.now();
+                while (Date.now() - startTime < 5000) {
+                    const frames = page.frames();
+                    for (const frame of frames) {
+                        try {
+                            if (isText) {
+                                const found = await frame.evaluate((txt) => {
+                                    const els = Array.from(document.querySelectorAll('label, span, button, li, div, a'));
+                                    const target = els.find(el =>
+                                        (el.innerText.trim().includes(txt) || el.textContent.trim().includes(txt)) &&
+                                        el.offsetParent !== null
+                                    );
+                                    if (target) {
+                                        target.click();
+                                        return true;
+                                    }
+                                    return false;
+                                }, selectorOrText);
+                                if (found) return true;
+                            } else {
+                                const el = await frame.waitForSelector(selectorOrText, { timeout }).catch(() => null);
+                                if (el && await el.isVisible()) {
+                                    await el.click();
+                                    return true;
+                                }
+                            }
+                        } catch (e) { }
+                    }
+                    await page.waitForTimeout(500);
                 }
                 return false;
-            }, CONFIG.PAYMENT_METHOD);
+            };
+
+            let payOk = await findAndClickMethod('#method-MPAY'); // ID가 최우선
+            if (!payOk) payOk = await findAndClickMethod(CONFIG.PAYMENT_METHOD, true);
+            if (!payOk) payOk = await findAndClickMethod('MUSINSA PAY', true);
 
             if (payOk) console.log("✅ 결제 수단 선택 완료");
 
@@ -918,7 +935,10 @@ async function runCheck() {
         console.log("\n❌ [CHECK FAILED] 상품 정보를 불러오는데 실패했습니다: " + e.message);
     }
 
-    await ask("\n⏎ 점검 결과를 다 확인하셨으면 [엔터 키]를 눌러 메뉴로 돌아가세요...");
+    ask("\n⏎ 점검 결과를 다 확인하셨으면 [엔터 키]를 눌러 메뉴로 돌아가세요...");
+}
+
+async function configureOrder() {
 }
 
 async function configureOrder() {
@@ -926,19 +946,19 @@ async function configureOrder() {
     console.log("       ⚙️ 타겟 및 주문 방식 설정 ⚙️       ");
     console.log("═".repeat(50));
 
-    const orderType = await ask("👉 주문 방식을 선택하세요 (1: 단일(1개) 주문, 2: 대량(수량 지정) 주문): ");
+    const orderType = ask("👉 주문 방식을 선택하세요 (1: 단일(1개) 주문, 2: 대량(수량 지정) 주문): ");
 
     if (orderType.trim() === "2") {
-        const qty = await ask("👉 주문 수량을 입력하세요 (숫자만): ");
+        const qty = ask("👉 주문 수량을 입력하세요 (숫자만): ");
         CONFIG.QUANTITY = parseInt(qty.trim()) || 1;
     } else {
         CONFIG.QUANTITY = 1;
     }
 
-    const useDefault = await ask(`👉 기본 설정된 타겟(ID:${CONFIG.PRODUCT_ID}, 컬러:${CONFIG.TARGET_COLOR}, 사이즈:${CONFIG.TARGET_SIZE})을 그대로 사용할까요? (y/n): `);
+    const useDefault = ask(`👉 기본 설정된 타겟(ID:${CONFIG.PRODUCT_ID}, 컬러:${CONFIG.TARGET_COLOR}, 사이즈:${CONFIG.TARGET_SIZE})을 그대로 사용할까요? (y/n): `);
 
     if (useDefault.trim().toLowerCase() !== "y") {
-        const inputId = await ask("👉 상품 번호(ID)를 입력하세요 (예: 5828960): ");
+        const inputId = ask("👉 상품 번호(ID)를 입력하세요 (예: 5828960): ");
         if (inputId.trim()) {
             CONFIG.PRODUCT_ID = inputId.trim();
         }
@@ -988,7 +1008,7 @@ async function configureOrder() {
         }
 
         if (availableColors.length > 0) {
-            const colorInput = await ask("👉 컬러 번호(1, 2...) 또는 이름을 입력하세요 (없으면 엔터): ");
+            const colorInput = ask("👉 컬러 번호(1, 2...) 또는 이름을 입력하세요 (없으면 엔터): ");
             const cNum = parseInt(colorInput.trim());
             if (!isNaN(cNum) && cNum >= 1 && cNum <= availableColors.length) {
                 CONFIG.TARGET_COLOR = availableColors[cNum - 1];
@@ -1000,7 +1020,7 @@ async function configureOrder() {
         }
 
         if (availableSizes.length > 0) {
-            const sizeInput = await ask("👉 사이즈 번호(1, 2...) 또는 이름을 입력하세요 (없으면 엔터): ");
+            const sizeInput = ask("👉 사이즈 번호(1, 2...) 또는 이름을 입력하세요 (없으면 엔터): ");
             const sNum = parseInt(sizeInput.trim());
             if (!isNaN(sNum) && sNum >= 1 && sNum <= availableSizes.length) {
                 CONFIG.TARGET_SIZE = availableSizes[sNum - 1];
@@ -1102,7 +1122,7 @@ async function mainMenu() {
         console.log(" q. 종료");
         console.log("═".repeat(50));
 
-        const choice = await ask("\n👉 선택: ");
+        const choice = ask("\n👉 선택: ");
         const c = choice.trim().toLowerCase();
 
         if (c === "1") {
