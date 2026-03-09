@@ -414,7 +414,8 @@ async function runSniper() {
 
     if (CONFIG.IS_UPCOMING && CONFIG.SELL_START_DATE) {
         console.log(`\n⏳ [알림] 이 상품은 발매 예정 상품입니다! (Time Attack)`);
-        const auto = await ask("👉 발매 시간에 맞춰 자동 대기 스나이핑을 하시겠습니까? (y/n): ");
+        console.log("👉 발매 시간에 맞춰 자동 대기 스나이핑을 하시겠습니까? (y/n): ");
+        const auto = ask("> ");
         if (auto.toLowerCase().trim() === 'y') {
             const targetTime = new Date(CONFIG.SELL_START_DATE).getTime();
             console.log(`\n⏳ [TIME ATTACK] 발매 시간(${CONFIG.SELL_START_DATE.replace('T', ' ')})까지 자동으로 대기합니다.`);
@@ -438,10 +439,12 @@ async function runSniper() {
                 }
             }
         } else {
-            ask("\n⌨️  [ENTER] 키를 누르는 즉시 서버로 타격을 시작합니다!! ");
+            console.log("\n⌨️  [ENTER] 키를 누르는 즉시 서버로 타격을 시작합니다!!");
+            ask("> ");
         }
     } else {
-        ask("\n⌨️  [ENTER] 키를 누르는 즉시 서버로 타격을 시작합니다!! ");
+        console.log("\n⌨️  [ENTER] 키를 누르는 즉시 서버로 타격을 시작합니다!!");
+        ask("> ");
     }
 
     const totalTaskStartTime = performance.now(); // 전체 공정 타이머 시작
@@ -707,7 +710,8 @@ async function runSniper() {
     } else {
         console.log(`\n❌ [STRIKE FAILED] 서버 응답: ${result.meta?.message}`);
     }
-    ask("\n⏎ 확인하셨으면 [엔터 키]를 눌러 메뉴로 돌아가세요...");
+    console.log("\n⏎ 확인하셨으면 [엔터 키]를 눌러 메뉴로 돌아가세요...");
+    ask("> ");
 }
 
 /**
@@ -741,7 +745,8 @@ async function runCart() {
     } else {
         console.log(`\n❌ [CART FAILED] 서버 응답: ${result.meta?.message}`);
     }
-    ask("\n⏎ 확인하셨으면 [엔터 키]를 눌러 메뉴로 돌아가세요...");
+    console.log("\n⏎ 확인하셨으면 [엔터 키]를 눌러 메뉴로 돌아가세요...");
+    ask("> ");
 }
 
 /**
@@ -935,7 +940,8 @@ async function runCheck() {
         console.log("\n❌ [CHECK FAILED] 상품 정보를 불러오는데 실패했습니다: " + e.message);
     }
 
-    ask("\n⏎ 점검 결과를 다 확인하셨으면 [엔터 키]를 눌러 메뉴로 돌아가세요...");
+    console.log("\n⏎ 점검 결과를 다 확인하셨으면 [엔터 키]를 눌러 메뉴로 돌아가세요...");
+    ask("> ");
 }
 
 async function configureOrder() {
@@ -943,19 +949,23 @@ async function configureOrder() {
     console.log("       ⚙️ 타겟 및 주문 방식 설정 ⚙️       ");
     console.log("═".repeat(50));
 
-    const orderType = ask("👉 주문 방식을 선택하세요 (1: 단일(1개) 주문, 2: 대량(수량 지정) 주문): ");
+    console.log("👉 주문 방식을 선택하세요 (1: 단일(1개) 주문, 2: 대량(수량 지정) 주문): ");
+    const orderType = ask("> ");
 
     if (orderType.trim() === "2") {
-        const qty = ask("👉 주문 수량을 입력하세요 (숫자만): ");
+        console.log("👉 주문 수량을 입력하세요 (숫자만): ");
+        const qty = ask("> ");
         CONFIG.QUANTITY = parseInt(qty.trim()) || 1;
     } else {
         CONFIG.QUANTITY = 1;
     }
 
-    const useDefault = ask(`👉 기본 설정된 타겟(ID:${CONFIG.PRODUCT_ID}, 컬러:${CONFIG.TARGET_COLOR}, 사이즈:${CONFIG.TARGET_SIZE})을 그대로 사용할까요? (y/n): `);
+    console.log(`👉 기본 설정된 타겟(ID:${CONFIG.PRODUCT_ID}, 컬러:${CONFIG.TARGET_COLOR}, 사이즈:${CONFIG.TARGET_SIZE})을 그대로 사용할까요? (y/n): `);
+    const useDefault = ask("> ");
 
     if (useDefault.trim().toLowerCase() !== "y") {
-        const inputId = ask("👉 상품 번호(ID)를 입력하세요 (예: 5828960): ");
+        console.log("👉 상품 번호(ID)를 입력하세요 (예: 5828960): ");
+        const inputId = ask("> ");
         if (inputId.trim()) {
             CONFIG.PRODUCT_ID = inputId.trim();
         }
@@ -1005,7 +1015,8 @@ async function configureOrder() {
         }
 
         if (availableColors.length > 0) {
-            const colorInput = ask("👉 컬러 번호(1, 2...) 또는 이름을 입력하세요 (없으면 엔터): ");
+            console.log("👉 컬러 번호(1, 2...) 또는 이름을 입력하세요 (없으면 엔터): ");
+            const colorInput = ask("> ");
             const cNum = parseInt(colorInput.trim());
             if (!isNaN(cNum) && cNum >= 1 && cNum <= availableColors.length) {
                 CONFIG.TARGET_COLOR = availableColors[cNum - 1];
@@ -1017,7 +1028,8 @@ async function configureOrder() {
         }
 
         if (availableSizes.length > 0) {
-            const sizeInput = ask("👉 사이즈 번호(1, 2...) 또는 이름을 입력하세요 (없으면 엔터): ");
+            console.log("👉 사이즈 번호(1, 2...) 또는 이름을 입력하세요 (없으면 엔터): ");
+            const sizeInput = ask("> ");
             const sNum = parseInt(sizeInput.trim());
             if (!isNaN(sNum) && sNum >= 1 && sNum <= availableSizes.length) {
                 CONFIG.TARGET_SIZE = availableSizes[sNum - 1];
@@ -1119,7 +1131,8 @@ async function mainMenu() {
         console.log(" q. 종료");
         console.log("═".repeat(50));
 
-        const choice = ask("\n👉 선택: ");
+        console.log("\n👉 선택: ");
+        const choice = ask("> ");
         const c = choice.trim().toLowerCase();
 
         if (c === "1") {
