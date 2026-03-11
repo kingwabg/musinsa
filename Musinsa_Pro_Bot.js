@@ -529,7 +529,7 @@ async function runSniper() {
                     const loc = inputLocs.nth(i);
                     if (await loc.isVisible()) {
                         await loc.scrollIntoViewIfNeeded();
-                        await page.waitForTimeout(100);
+                        await page.waitForTimeout(200);
                         
                         // 물리 마우스 클릭
                         const box = await loc.boundingBox();
@@ -538,11 +538,14 @@ async function runSniper() {
                             await page.mouse.down();
                             await page.waitForTimeout(50);
                             await page.mouse.up();
-                            await page.waitForTimeout(400); // 리스트 렌더 대기
+                            
+                            // 팝업(모달) 애니메이션이 완전히 끝날 때까지 넉넉히 대기
+                            await page.waitForTimeout(800); 
                         }
                         
-                        // "문 앞에 놔주세요" 선택
+                        // "문 앞에 놔주세요" 선택 (팝업 내 요소가 안정된 후 위치 캡처)
                         const opt = page.locator('text="문 앞에 놔주세요"').filter({ state: 'visible' }).first();
+                        await opt.waitFor({ state: 'visible', timeout: 3000 }).catch(()=>{});
                         if (await opt.isVisible()) {
                             const optBox = await opt.boundingBox();
                             if (optBox) {
@@ -550,6 +553,7 @@ async function runSniper() {
                                 await page.mouse.down();
                                 await page.waitForTimeout(50);
                                 await page.mouse.up();
+                                await page.waitForTimeout(500); // 클릭 후 모달이 닫히는 시간 대기
                             }
                         }
                     }
@@ -562,16 +566,17 @@ async function runSniper() {
                     const loc = textLocs.nth(i);
                     if (await loc.isVisible()) {
                         await loc.scrollIntoViewIfNeeded();
-                        await page.waitForTimeout(100);
+                        await page.waitForTimeout(200);
                         const box = await loc.boundingBox();
                         if (box) {
                             await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
                             await page.mouse.down();
                             await page.waitForTimeout(50);
                             await page.mouse.up();
-                            await page.waitForTimeout(400);
+                            await page.waitForTimeout(800); // 애니메이션 대기
 
                             const opt = page.locator('text="문 앞에 놔주세요"').filter({ state: 'visible' }).first();
+                            await opt.waitFor({ state: 'visible', timeout: 3000 }).catch(()=>{});
                             if (await opt.isVisible()) {
                                 const optBox = await opt.boundingBox();
                                 if (optBox) {
@@ -579,6 +584,7 @@ async function runSniper() {
                                     await page.mouse.down();
                                     await page.waitForTimeout(50);
                                     await page.mouse.up();
+                                    await page.waitForTimeout(500); // 라벨 선택 대기
                                 }
                             }
                         }
@@ -916,17 +922,18 @@ async function runGhost() {
                     const loc = inputLocs.nth(i);
                     if (await loc.isVisible()) {
                         await loc.scrollIntoViewIfNeeded();
-                        await page.waitForTimeout(100);
+                        await page.waitForTimeout(200);
                         const box = await loc.boundingBox();
                         if (box) {
                             await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
                             await page.mouse.down();
                             await page.waitForTimeout(50);
                             await page.mouse.up();
-                            await page.waitForTimeout(400);
+                            await page.waitForTimeout(800);
                         }
                         
                         const opt = page.locator('text="문 앞에 놔주세요"').filter({ state: 'visible' }).first();
+                        await opt.waitFor({ state: 'visible', timeout: 3000 }).catch(()=>{});
                         if (await opt.isVisible()) {
                             const optBox = await opt.boundingBox();
                             if (optBox) {
@@ -934,6 +941,7 @@ async function runGhost() {
                                 await page.mouse.down();
                                 await page.waitForTimeout(50);
                                 await page.mouse.up();
+                                await page.waitForTimeout(500);
                             }
                         }
                     }
@@ -945,16 +953,17 @@ async function runGhost() {
                     const loc = textLocs.nth(i);
                     if (await loc.isVisible()) {
                         await loc.scrollIntoViewIfNeeded();
-                        await page.waitForTimeout(100);
+                        await page.waitForTimeout(200);
                         const box = await loc.boundingBox();
                         if (box) {
                             await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
                             await page.mouse.down();
                             await page.waitForTimeout(50);
                             await page.mouse.up();
-                            await page.waitForTimeout(400);
+                            await page.waitForTimeout(800);
 
                             const opt = page.locator('text="문 앞에 놔주세요"').filter({ state: 'visible' }).first();
+                            await opt.waitFor({ state: 'visible', timeout: 3000 }).catch(()=>{});
                             if (await opt.isVisible()) {
                                 const optBox = await opt.boundingBox();
                                 if (optBox) {
@@ -962,6 +971,7 @@ async function runGhost() {
                                     await page.mouse.down();
                                     await page.waitForTimeout(50);
                                     await page.mouse.up();
+                                    await page.waitForTimeout(500);
                                 }
                             }
                         }
