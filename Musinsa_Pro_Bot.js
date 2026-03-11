@@ -515,6 +515,40 @@ async function runSniper() {
 
         await page.waitForLoadState('networkidle').catch(() => { }); // 네트워크 안정화 대기
 
+        console.log(`📦 [Action] 배송 요청사항 자동 선택 시도...`);
+        try {
+            // "배송 요청사항을 선택해주세요" 드롭다운 클릭
+            const dropdownClicked = await page.evaluate(() => {
+                const els = Array.from(document.querySelectorAll('div, button, span, input'));
+                const dropdown = els.find(el => 
+                    el.innerText && el.innerText.includes('배송 요청사항을 선택해') && el.offsetParent !== null
+                );
+                if (dropdown) {
+                    dropdown.click();
+                    return true;
+                }
+                return false;
+            }).catch(()=>false);
+
+            if (dropdownClicked) {
+                await page.waitForTimeout(400); // 드롭다운 애니메이션 대기
+                // "문 앞에 놔주세요" 옵션 클릭
+                await page.evaluate(() => {
+                    const options = Array.from(document.querySelectorAll('div, li, span, button'));
+                    const targetOption = options.find(el => 
+                        el.innerText && el.innerText.includes('문 앞에 놔주세요') && el.offsetParent !== null
+                    );
+                    if (targetOption) {
+                        targetOption.click();
+                    }
+                }).catch(()=>{});
+                console.log(`✅ [Action] 배송 요청사항('문 앞에 놔주세요') 위임 선택 완료`);
+                await page.waitForTimeout(300);
+            }
+        } catch(e) {
+            console.log(`⚠️ 배송 요청사항 처리 중 오류 (무시): ${e.message}`);
+        }
+
         // 결제 수단 자동 선택 및 최종 결제 클릭
         try {
             console.log(`🖱️ [Action] "${CONFIG.PAYMENT_METHOD}" 자동 매칭 및 결제 시도...`);
@@ -829,6 +863,38 @@ async function runGhost() {
         await page.goto(orderLink, { waitUntil: 'load' });
         await page.waitForLoadState('load'); // Added as per instruction
         await page.waitForLoadState('networkidle').catch(() => { }); // 네트워크 안정화 대기
+
+        console.log(`📦 [Action] 배송 요청사항 자동 선택 시도...`);
+        try {
+            const dropdownClicked = await page.evaluate(() => {
+                const els = Array.from(document.querySelectorAll('div, button, span, input'));
+                const dropdown = els.find(el => 
+                    el.innerText && el.innerText.includes('배송 요청사항을 선택해') && el.offsetParent !== null
+                );
+                if (dropdown) {
+                    dropdown.click();
+                    return true;
+                }
+                return false;
+            }).catch(()=>false);
+
+            if (dropdownClicked) {
+                await page.waitForTimeout(400);
+                await page.evaluate(() => {
+                    const options = Array.from(document.querySelectorAll('div, li, span, button'));
+                    const targetOption = options.find(el => 
+                        el.innerText && el.innerText.includes('문 앞에 놔주세요') && el.offsetParent !== null
+                    );
+                    if (targetOption) {
+                        targetOption.click();
+                    }
+                }).catch(()=>{});
+                console.log(`✅ [Action] 배송 요청사항('문 앞에 놔주세요') 자동 선택 완료`);
+                await page.waitForTimeout(300);
+            }
+        } catch(e) {
+            console.log(`⚠️ 배송 요청사항 처리 중 오류 (무시): ${e.message}`);
+        }
 
         // 결제 수단 자동 선택 및 최종 결제 클릭
         try {
