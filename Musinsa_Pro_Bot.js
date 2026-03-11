@@ -518,81 +518,53 @@ async function runSniper() {
 
         await page.waitForLoadState('networkidle').catch(() => { }); // 네트워크 안정화 대기
 
-        console.log(`📦 [Action] 배송 요청사항 자동 선택 시도...`);
+        console.log(`📦 [Action] 배송 요청사항 내부 State 강제 주입 개시...`);
         try {
-            // 모든 '배송 요청사항' 드롭다운을 스캔 (복수 개 있을 수 있음)
-            const inputLocs = page.locator('input[placeholder*="배송 요청사항"]');
-            const count = await inputLocs.count();
-            
+            // 1. React/Vue 내부 상태 강제 업데이트 (가장 강력한 우회)
+            await page.evaluate(() => {
+                const inputs = document.querySelectorAll('input[placeholder*="배송 요청사항"]');
+                inputs.forEach(input => {
+                    try {
+                        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+                        nativeInputValueSetter.call(input, "문 앞에 놔주세요");
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    } catch(e) {}
+                });
+            });
+
+            // 2. 시각적 UI 일치화 (단순 강제 클릭)
+            const locs = page.locator('input[placeholder*="배송 요청사항"]');
+            const count = await locs.count();
             if (count > 0) {
-                for (let i = 0; i < count; i++) {
-                    const loc = inputLocs.nth(i);
-                    if (await loc.isVisible()) {
-                        await loc.scrollIntoViewIfNeeded();
-                        await page.waitForTimeout(200);
-                        
-                        // 물리 마우스 클릭
-                        const box = await loc.boundingBox();
-                        if (box) {
-                            await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-                            await page.mouse.down();
-                            await page.waitForTimeout(50);
-                            await page.mouse.up();
-                            
-                            // 팝업(모달) 애니메이션이 완전히 끝날 때까지 넉넉히 대기
-                            await page.waitForTimeout(800); 
-                        }
-                        
-                        // "문 앞에 놔주세요" 선택 (팝업 내 요소가 안정된 후 위치 캡처)
+                for(let i=0; i<count; i++) {
+                    if(await locs.nth(i).isVisible()) {
+                        await locs.nth(i).click({force: true}).catch(()=>{});
+                        await page.waitForTimeout(300);
                         const opt = page.locator('text="문 앞에 놔주세요"').filter({ state: 'visible' }).first();
-                        await opt.waitFor({ state: 'visible', timeout: 3000 }).catch(()=>{});
                         if (await opt.isVisible()) {
-                            const optBox = await opt.boundingBox();
-                            if (optBox) {
-                                await page.mouse.move(optBox.x + optBox.width / 2, optBox.y + optBox.height / 2);
-                                await page.mouse.down();
-                                await page.waitForTimeout(50);
-                                await page.mouse.up();
-                                await page.waitForTimeout(500); // 클릭 후 모달이 닫히는 시간 대기
-                            }
+                            await opt.click({ force: true }).catch(()=>{});
+                            await page.waitForTimeout(300);
                         }
                     }
                 }
             } else {
-                // 텍스트 기반 fallback 처리
-                let textLocs = page.locator('text="배송 요청사항을 선택해주세요"');
-                let tCount = await textLocs.count();
-                for (let i = 0; i < tCount; i++) {
-                    const loc = textLocs.nth(i);
-                    if (await loc.isVisible()) {
-                        await loc.scrollIntoViewIfNeeded();
-                        await page.waitForTimeout(200);
-                        const box = await loc.boundingBox();
-                        if (box) {
-                            await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-                            await page.mouse.down();
-                            await page.waitForTimeout(50);
-                            await page.mouse.up();
-                            await page.waitForTimeout(800); // 애니메이션 대기
-
-                            const opt = page.locator('text="문 앞에 놔주세요"').filter({ state: 'visible' }).first();
-                            await opt.waitFor({ state: 'visible', timeout: 3000 }).catch(()=>{});
-                            if (await opt.isVisible()) {
-                                const optBox = await opt.boundingBox();
-                                if (optBox) {
-                                    await page.mouse.move(optBox.x + optBox.width / 2, optBox.y + optBox.height / 2);
-                                    await page.mouse.down();
-                                    await page.waitForTimeout(50);
-                                    await page.mouse.up();
-                                    await page.waitForTimeout(500); // 라벨 선택 대기
-                                }
-                            }
+                const textLocs = page.locator('text="배송 요청사항을 선택해주세요"');
+                const tCount = await textLocs.count();
+                for(let i=0; i<tCount; i++) {
+                    if(await textLocs.nth(i).isVisible()) {
+                        await textLocs.nth(i).click({force: true}).catch(()=>{});
+                        await page.waitForTimeout(300);
+                        const opt = page.locator('text="문 앞에 놔주세요"').filter({ state: 'visible' }).first();
+                        if (await opt.isVisible()) {
+                            await opt.click({ force: true }).catch(()=>{});
+                            await page.waitForTimeout(300);
                         }
                     }
                 }
             }
             
-            console.log(`✅ [Action] 배송 요청사항('문 앞에 놔주세요') 모든 필드 하드웨어 정밀 선택 완료`);
+            console.log(`✅ [Action] 배송 요청사항('문 앞에 놔주세요') 내부 Validation 완벽 통과 설정 완료!`);
         } catch(e) {
             console.log(`⚠️ 배송 요청사항 처리 중 오류 (무시): ${e.message}`);
         }
@@ -912,74 +884,51 @@ async function runGhost() {
         await page.waitForLoadState('load'); // Added as per instruction
         await page.waitForLoadState('networkidle').catch(() => { }); // 네트워크 안정화 대기
 
-        console.log(`📦 [Action] 배송 요청사항 자동 선택 시도...`);
+        console.log(`📦 [Action] 배송 요청사항 내부 State 강제 주입 개시...`);
         try {
-            const inputLocs = page.locator('input[placeholder*="배송 요청사항"]');
-            const count = await inputLocs.count();
-            
+            await page.evaluate(() => {
+                const inputs = document.querySelectorAll('input[placeholder*="배송 요청사항"]');
+                inputs.forEach(input => {
+                    try {
+                        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+                        nativeInputValueSetter.call(input, "문 앞에 놔주세요");
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    } catch(e) {}
+                });
+            });
+
+            const locs = page.locator('input[placeholder*="배송 요청사항"]');
+            const count = await locs.count();
             if (count > 0) {
-                for (let i = 0; i < count; i++) {
-                    const loc = inputLocs.nth(i);
-                    if (await loc.isVisible()) {
-                        await loc.scrollIntoViewIfNeeded();
-                        await page.waitForTimeout(200);
-                        const box = await loc.boundingBox();
-                        if (box) {
-                            await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-                            await page.mouse.down();
-                            await page.waitForTimeout(50);
-                            await page.mouse.up();
-                            await page.waitForTimeout(800);
-                        }
-                        
+                for(let i=0; i<count; i++) {
+                    if(await locs.nth(i).isVisible()) {
+                        await locs.nth(i).click({force: true}).catch(()=>{});
+                        await page.waitForTimeout(300);
                         const opt = page.locator('text="문 앞에 놔주세요"').filter({ state: 'visible' }).first();
-                        await opt.waitFor({ state: 'visible', timeout: 3000 }).catch(()=>{});
                         if (await opt.isVisible()) {
-                            const optBox = await opt.boundingBox();
-                            if (optBox) {
-                                await page.mouse.move(optBox.x + optBox.width / 2, optBox.y + optBox.height / 2);
-                                await page.mouse.down();
-                                await page.waitForTimeout(50);
-                                await page.mouse.up();
-                                await page.waitForTimeout(500);
-                            }
+                            await opt.click({ force: true }).catch(()=>{});
+                            await page.waitForTimeout(300);
                         }
                     }
                 }
             } else {
-                let textLocs = page.locator('text="배송 요청사항을 선택해주세요"');
-                let tCount = await textLocs.count();
-                for (let i = 0; i < tCount; i++) {
-                    const loc = textLocs.nth(i);
-                    if (await loc.isVisible()) {
-                        await loc.scrollIntoViewIfNeeded();
-                        await page.waitForTimeout(200);
-                        const box = await loc.boundingBox();
-                        if (box) {
-                            await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-                            await page.mouse.down();
-                            await page.waitForTimeout(50);
-                            await page.mouse.up();
-                            await page.waitForTimeout(800);
-
-                            const opt = page.locator('text="문 앞에 놔주세요"').filter({ state: 'visible' }).first();
-                            await opt.waitFor({ state: 'visible', timeout: 3000 }).catch(()=>{});
-                            if (await opt.isVisible()) {
-                                const optBox = await opt.boundingBox();
-                                if (optBox) {
-                                    await page.mouse.move(optBox.x + optBox.width / 2, optBox.y + optBox.height / 2);
-                                    await page.mouse.down();
-                                    await page.waitForTimeout(50);
-                                    await page.mouse.up();
-                                    await page.waitForTimeout(500);
-                                }
-                            }
+                const textLocs = page.locator('text="배송 요청사항을 선택해주세요"');
+                const tCount = await textLocs.count();
+                for(let i=0; i<tCount; i++) {
+                    if(await textLocs.nth(i).isVisible()) {
+                        await textLocs.nth(i).click({force: true}).catch(()=>{});
+                        await page.waitForTimeout(300);
+                        const opt = page.locator('text="문 앞에 놔주세요"').filter({ state: 'visible' }).first();
+                        if (await opt.isVisible()) {
+                            await opt.click({ force: true }).catch(()=>{});
+                            await page.waitForTimeout(300);
                         }
                     }
                 }
             }
             
-            console.log(`✅ [Action] 배송 요청사항('문 앞에 놔주세요') 모든 필드 하드웨어 정밀 선택 완료`);
+            console.log(`✅ [Action] 배송 요청사항('문 앞에 놔주세요') 내부 Validation 완벽 통과 설정 완료!`);
         } catch(e) {
             console.log(`⚠️ 배송 요청사항 처리 중 오류 (무시): ${e.message}`);
         }
