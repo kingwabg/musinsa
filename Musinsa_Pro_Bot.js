@@ -88,10 +88,11 @@ class SessionHarvester {
 
         // 메인 페이지 또는 로그인 성공 후 URL로 이동할 때까지 대기
         try {
-            await page.waitForURL(/www.musinsa.com|main|recommend/, { timeout: 15000 });
+            console.log("⏳ [Session] 로그인 인증 대기 중... (만약 브라우저 화면에 '로봇이 아닙니다(reCAPTCHA)' 창이 뜨면 창에서 직접 체크하고 퍼즐을 풀어주세요! 90초 대기 중...)");
+            await page.waitForURL(/www.musinsa.com|main|recommend/, { timeout: 90000 });
             console.log("✅ [Session] 백그라운드 로그인 성공! (터미널에서 세션 획득 완료)");
         } catch (e) {
-            console.log("⚠️ [Session] 로그인 응답 지연 (봇 탐지 또는 추가 보안 절차가 발생했을 수 있습니다.)");
+            console.log("⚠️ [Session] 로그인 응답 지연 (봇 탐지 또는 캡챠 시간 초과로 세션 획득을 실패했습니다.)");
         }
 
         const cookies = await context.cookies();
