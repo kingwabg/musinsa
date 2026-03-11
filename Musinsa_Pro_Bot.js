@@ -519,32 +519,44 @@ async function runSniper() {
 
         console.log(`📦 [Action] 배송 요청사항 자동 선택 시도...`);
         try {
-            // "배송 요청사항을 선택해주세요" 드롭다운 클릭
-            const dropdownClicked = await page.evaluate(() => {
-                const els = Array.from(document.querySelectorAll('div, button, span, input'));
-                const dropdown = els.find(el => 
-                    el.innerText && el.innerText.includes('배송 요청사항을 선택해') && el.offsetParent !== null
-                );
-                if (dropdown) {
-                    dropdown.click();
-                    return true;
+            // "배송 요청사항을 선택해주세요" 박스 클릭
+            let clicked = false;
+            
+            // 1. placeholder 기반 input 검색
+            const inputLoc = page.locator('input[placeholder*="배송 요청사항"]');
+            if (await inputLoc.count() > 0 && await inputLoc.first().isVisible()) {
+                await inputLoc.first().click({ force: true });
+                clicked = true;
+            } 
+            // 2. 텍스트 기반 검색
+            else {
+                const textLoc = page.locator('text="배송 요청사항을 선택해주세요"');
+                if (await textLoc.count() > 0 && await textLoc.first().isVisible()) {
+                    await textLoc.first().click({ force: true });
+                    clicked = true;
+                } else {
+                    // 3. Fallback
+                    await page.click('body :has-text("배송 요청사항을 선택해주세요")', { force: true, timeout: 1000 }).catch(()=>{});
+                    clicked = true;
                 }
-                return false;
-            }).catch(()=>false);
+            }
 
-            if (dropdownClicked) {
-                await page.waitForTimeout(400); // 드롭다운 애니메이션 대기
+            if (clicked) {
+                await page.waitForTimeout(500); // 드롭다운 애니메이션 렌더링 대기
+                
                 // "문 앞에 놔주세요" 옵션 클릭
-                await page.evaluate(() => {
-                    const options = Array.from(document.querySelectorAll('div, li, span, button'));
-                    const targetOption = options.find(el => 
-                        el.innerText && el.innerText.includes('문 앞에 놔주세요') && el.offsetParent !== null
-                    );
-                    if (targetOption) {
-                        targetOption.click();
-                    }
-                }).catch(()=>{});
-                console.log(`✅ [Action] 배송 요청사항('문 앞에 놔주세요') 위임 선택 완료`);
+                const option1 = page.locator('text="문 앞에 놔주세요"').first();
+                const option2 = page.locator('li:has-text("문 앞에 놔주세요")').first();
+                
+                if (await option1.isVisible()) {
+                    await option1.click({ force: true });
+                } else if (await option2.isVisible()) {
+                    await option2.click({ force: true });
+                } else {
+                    await page.click('text=문 앞에 놔주세요', { force: true, timeout: 1000 }).catch(()=>{});
+                }
+                
+                console.log(`✅ [Action] 배송 요청사항('문 앞에 놔주세요') 자동 선택 완료`);
                 await page.waitForTimeout(300);
             }
         } catch(e) {
@@ -868,29 +880,36 @@ async function runGhost() {
 
         console.log(`📦 [Action] 배송 요청사항 자동 선택 시도...`);
         try {
-            const dropdownClicked = await page.evaluate(() => {
-                const els = Array.from(document.querySelectorAll('div, button, span, input'));
-                const dropdown = els.find(el => 
-                    el.innerText && el.innerText.includes('배송 요청사항을 선택해') && el.offsetParent !== null
-                );
-                if (dropdown) {
-                    dropdown.click();
-                    return true;
+            let clicked = false;
+            const inputLoc = page.locator('input[placeholder*="배송 요청사항"]');
+            if (await inputLoc.count() > 0 && await inputLoc.first().isVisible()) {
+                await inputLoc.first().click({ force: true });
+                clicked = true;
+            } else {
+                const textLoc = page.locator('text="배송 요청사항을 선택해주세요"');
+                if (await textLoc.count() > 0 && await textLoc.first().isVisible()) {
+                    await textLoc.first().click({ force: true });
+                    clicked = true;
+                } else {
+                    await page.click('body :has-text("배송 요청사항을 선택해주세요")', { force: true, timeout: 1000 }).catch(()=>{});
+                    clicked = true;
                 }
-                return false;
-            }).catch(()=>false);
+            }
 
-            if (dropdownClicked) {
-                await page.waitForTimeout(400);
-                await page.evaluate(() => {
-                    const options = Array.from(document.querySelectorAll('div, li, span, button'));
-                    const targetOption = options.find(el => 
-                        el.innerText && el.innerText.includes('문 앞에 놔주세요') && el.offsetParent !== null
-                    );
-                    if (targetOption) {
-                        targetOption.click();
-                    }
-                }).catch(()=>{});
+            if (clicked) {
+                await page.waitForTimeout(500);
+                
+                const option1 = page.locator('text="문 앞에 놔주세요"').first();
+                const option2 = page.locator('li:has-text("문 앞에 놔주세요")').first();
+                
+                if (await option1.isVisible()) {
+                    await option1.click({ force: true });
+                } else if (await option2.isVisible()) {
+                    await option2.click({ force: true });
+                } else {
+                    await page.click('text=문 앞에 놔주세요', { force: true, timeout: 1000 }).catch(()=>{});
+                }
+                
                 console.log(`✅ [Action] 배송 요청사항('문 앞에 놔주세요') 자동 선택 완료`);
                 await page.waitForTimeout(300);
             }
