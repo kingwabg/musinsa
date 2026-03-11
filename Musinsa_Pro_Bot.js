@@ -609,6 +609,10 @@ async function runSniper() {
             };
 
             // 1. 결제 수단 '무신사페이' 선택
+            // 화면 스크롤 하단으로 강제 이동 (스티키 헤더 오작동 방지)
+            await page.evaluate(() => window.scrollBy(0, window.innerHeight * 0.8));
+            await page.waitForTimeout(300);
+
             // MPAY: 무신사페이, MUSINSAPAY_MONEY: 무신사머니
             let payMethodOk = await findAndClick('#method-MPAY'); // ID로 먼저 시도 (가장 정확)
             if (!payMethodOk) payMethodOk = await findAndClick('무신사페이', true);
@@ -686,20 +690,33 @@ async function runSniper() {
                 "form[name='orderForm'] button[type='submit']"
             ];
 
-            await page.waitForTimeout(1500); // 최종 금액 계산 및 버튼 활성화 대기 시간 상향
+            // [2차 검증 보험] 카드 선택이나 드래그 후 배송 요청사항이 날아가는 것을 방지하기 위해 최종 클릭 직전 재주입
+            await page.evaluate(() => {
+                const inputs = document.querySelectorAll('input[placeholder*="배송 요청사항"]');
+                inputs.forEach(input => {
+                    try {
+                        const nativeSet = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+                        nativeSet.call(input, "문 앞에 놔주세요");
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    } catch(e) {}
+                });
+            });
+            await page.waitForTimeout(300); // 반영될 아주 짧은 찰나의 시간 대기
 
             let clicked = false;
-            // 여러 셀렉터로 순회하며 클릭 시도 (최대 3회 메인 루프)
-            for (let retry = 0; retry < 3; retry++) {
+            // 여러 셀렉터로 순회하며 클릭 시도 (연타 방지 및 정확도 향상)
+            console.log(`🚀 [Action] 모든 검증 통과! 최종 결제 버튼 타격 개시...`);
+            for (let retry = 0; retry < 2; retry++) {
                 for (const sel of payButtonSelectors) {
-                    if (await findAndClick(sel, sel.includes('has-text'), 500)) {
+                    if (await findAndClick(sel, sel.includes('has-text'), 300)) {
                         clicked = true;
                         console.log(`🚀 [Action] 최종 결제하기 버튼('${sel}') 타격 완료!`);
                         break;
                     }
                 }
                 if (clicked) break;
-                await page.waitForTimeout(1000);
+                await page.waitForTimeout(500);
             }
 
             if (!clicked) {
@@ -1042,19 +1059,33 @@ async function runGhost() {
                 "button[type='submit']" // Added for more flexibility
             ];
 
-            await page.waitForTimeout(800);
+            // [2차 검증 보험] 결제 버튼 누르기 직전 배송 정보 재입력
+            await page.evaluate(() => {
+                const inputs = document.querySelectorAll('input[placeholder*="배송 요청사항"]');
+                inputs.forEach(input => {
+                    try {
+                        const nativeSet = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+                        nativeSet.call(input, "문 앞에 놔주세요");
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    } catch(e) {}
+                });
+            });
+            await page.waitForTimeout(300);
+
+            console.log(`🚀 [Action] 모든 데이터 정밀 재검증 및 최종 결제 타격!`);
             let clicked = false;
             for (const sel of payButtonSelectors) {
                 try {
-                    const btn = await page.waitForSelector(sel, { timeout: 3000 });
-                    await btn.click();
+                    const btn = await page.waitForSelector(sel, { timeout: 2000 });
+                    await btn.click({ force: true });
                     clicked = true;
-                    console.log(`🚀 [Action] 최종 결제하기 버튼('${sel}') 클릭 성공!`);
+                    console.log(`✅ [Action] 최종 결제하기 버튼('${sel}') 클릭 성공!`);
                     break;
                 } catch (e) { }
             }
             if (!clicked) {
-                console.log("❌ [오류] 최종 결제 버튼을 찾지 못했습니다. (수동 클릭 필요)");
+                console.log("❌ [오류] 최종 결제 버튼 클릭 실패. (수동 처리 필요)");
             }
 
             // 4. 무신사페이 비밀번호 6자리 자동 입력 로직 (GHOST 모드)
