@@ -393,13 +393,15 @@ async function runSniper() {
         await runHarvest();
     }
 
-    const { cookies, browser } = globalSession;
+    const { cookies, browser, page } = globalSession;
     
-    // 타격 전용 새 창 열기 (Target page closed 방지)
-    const context = browser.contexts()[0];
-    const page = await context.newPage();
-    
+    // 타격 전용 새 창(blank)을 열지 않고, 기존 로그인된 페이지(page)를 재활용하여 자연스럽게 연결
     const client = new MusinsaUltimateClient(cookies);
+
+    if (CONFIG.SHOW_BROWSER && page) {
+        // 백그라운드에서 넘어온 페이지를 최상단 활성화
+        await page.bringToFront().catch(()=>{});
+    }
 
     console.log("\n🎯 [Mode: SNIPER] 목표물 정조준 중...");
     const optionData = await client.getOptionsByApi(true); // silent=true (출력 생략)
