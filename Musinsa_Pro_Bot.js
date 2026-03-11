@@ -393,7 +393,12 @@ async function runSniper() {
         await runHarvest();
     }
 
-    const { cookies, page } = globalSession;
+    const { cookies, browser } = globalSession;
+    
+    // 타격 전용 새 창 열기 (Target page closed 방지)
+    const context = browser.contexts()[0];
+    const page = await context.newPage();
+    
     const client = new MusinsaUltimateClient(cookies);
 
     console.log("\n🎯 [Mode: SNIPER] 목표물 정조준 중...");
@@ -484,8 +489,8 @@ async function runSniper() {
                 // orderNo 방식은 order 서브도메인 사용
                 orderLink = `https://order.musinsa.com/order/form?orderNo=${orderNo}`;
             } else if (cartIds && Array.isArray(cartIds) && cartIds.length > 0) {
-                // cartIds 방식은 무신사 신규 결제 도메인(checkout) 사용
-                orderLink = `https://checkout.musinsa.com/order/form?cartIds=${cartIds.join(",")}`;
+                // 무신사 신규 결제 도메인 통합 주소 (cartIds 파라미터 불필요)
+                orderLink = `https://www.musinsa.com/order/order-form`;
             }
         }
 
@@ -760,7 +765,11 @@ async function runGhost() {
         console.log("\n👻 [Mode: GHOST] 기존 세션을 사용하여 올인원 타격을 시작합니다.");
     }
 
-    const { cookies, page, browser } = globalSession;
+    const { cookies, browser } = globalSession;
+
+    // 타격 전용 새 창 열기 (Target page closed 방지)
+    const context = browser.contexts()[0];
+    const page = await context.newPage();
 
     const client = new MusinsaUltimateClient(cookies);
     const optionData = await client.getOptionsByApi(true); // silent
@@ -787,7 +796,8 @@ async function runGhost() {
             if (orderNo) {
                 orderLink = `https://order.musinsa.com/order/form?orderNo=${orderNo}`;
             } else if (cartIds && Array.isArray(cartIds) && cartIds.length > 0) {
-                orderLink = `https://checkout.musinsa.com/order/form?cartIds=${cartIds.join(",")}`;
+                // 무신사 신규 결제 도메인 통합 주소 (cartIds 파라미터 불필요)
+                orderLink = `https://www.musinsa.com/order/order-form`;
             }
         }
 
