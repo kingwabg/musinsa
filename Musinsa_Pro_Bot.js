@@ -520,45 +520,73 @@ async function runSniper() {
 
         console.log(`📦 [Action] 배송 요청사항 자동 선택 시도...`);
         try {
-            // 1. placeholder 기반 검색 후 마우스 좌표 수동 타격
-            const inputLoc = page.locator('input[placeholder*="배송 요청사항"]');
-            if (await inputLoc.count() > 0 && await inputLoc.first().isVisible()) {
-                const box = await inputLoc.first().boundingBox();
-                if (box) {
-                    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-                    await page.mouse.down();
-                    await page.waitForTimeout(50);
-                    await page.mouse.up();
-                    await page.waitForTimeout(400); // 드롭다운 애니메이션 대기
+            // 모든 '배송 요청사항' 드롭다운을 스캔 (복수 개 있을 수 있음)
+            const inputLocs = page.locator('input[placeholder*="배송 요청사항"]');
+            const count = await inputLocs.count();
+            
+            if (count > 0) {
+                for (let i = 0; i < count; i++) {
+                    const loc = inputLocs.nth(i);
+                    if (await loc.isVisible()) {
+                        await loc.scrollIntoViewIfNeeded();
+                        await page.waitForTimeout(100);
+                        
+                        // 물리 마우스 클릭
+                        const box = await loc.boundingBox();
+                        if (box) {
+                            await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+                            await page.mouse.down();
+                            await page.waitForTimeout(50);
+                            await page.mouse.up();
+                            await page.waitForTimeout(400); // 리스트 렌더 대기
+                        }
+                        
+                        // "문 앞에 놔주세요" 선택
+                        const opt = page.locator('text="문 앞에 놔주세요"').filter({ state: 'visible' }).first();
+                        if (await opt.isVisible()) {
+                            const optBox = await opt.boundingBox();
+                            if (optBox) {
+                                await page.mouse.move(optBox.x + optBox.width / 2, optBox.y + optBox.height / 2);
+                                await page.mouse.down();
+                                await page.waitForTimeout(50);
+                                await page.mouse.up();
+                            }
+                        }
+                    }
                 }
             } else {
-                // 텍스트 기반 fallback
-                const textLoc = page.locator('text="배송 요청사항을 선택해주세요"');
-                if (await textLoc.count() > 0 && await textLoc.first().isVisible()) {
-                    const box = await textLoc.first().boundingBox();
-                    if (box) {
-                        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-                        await page.mouse.down();
-                        await page.waitForTimeout(50);
-                        await page.mouse.up();
-                        await page.waitForTimeout(400);
+                // 텍스트 기반 fallback 처리
+                let textLocs = page.locator('text="배송 요청사항을 선택해주세요"');
+                let tCount = await textLocs.count();
+                for (let i = 0; i < tCount; i++) {
+                    const loc = textLocs.nth(i);
+                    if (await loc.isVisible()) {
+                        await loc.scrollIntoViewIfNeeded();
+                        await page.waitForTimeout(100);
+                        const box = await loc.boundingBox();
+                        if (box) {
+                            await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+                            await page.mouse.down();
+                            await page.waitForTimeout(50);
+                            await page.mouse.up();
+                            await page.waitForTimeout(400);
+
+                            const opt = page.locator('text="문 앞에 놔주세요"').filter({ state: 'visible' }).first();
+                            if (await opt.isVisible()) {
+                                const optBox = await opt.boundingBox();
+                                if (optBox) {
+                                    await page.mouse.move(optBox.x + optBox.width / 2, optBox.y + optBox.height / 2);
+                                    await page.mouse.down();
+                                    await page.waitForTimeout(50);
+                                    await page.mouse.up();
+                                }
+                            }
+                        }
                     }
                 }
             }
-
-            // "문 앞에 놔주세요" 옵션 절대 좌표 마우스 클릭
-            const opt = page.locator('text="문 앞에 놔주세요"').filter({ state: 'visible' }).first();
-            if (await opt.isVisible()) {
-                const optBox = await opt.boundingBox();
-                if (optBox) {
-                    await page.mouse.move(optBox.x + optBox.width / 2, optBox.y + optBox.height / 2);
-                    await page.mouse.down();
-                    await page.waitForTimeout(50);
-                    await page.mouse.up();
-                }
-            }
             
-            console.log(`✅ [Action] 배송 요청사항('문 앞에 놔주세요') 하드웨어 정밀 선택 완료`);
+            console.log(`✅ [Action] 배송 요청사항('문 앞에 놔주세요') 모든 필드 하드웨어 정밀 선택 완료`);
         } catch(e) {
             console.log(`⚠️ 배송 요청사항 처리 중 오류 (무시): ${e.message}`);
         }
@@ -880,42 +908,68 @@ async function runGhost() {
 
         console.log(`📦 [Action] 배송 요청사항 자동 선택 시도...`);
         try {
-            const inputLoc = page.locator('input[placeholder*="배송 요청사항"]');
-            if (await inputLoc.count() > 0 && await inputLoc.first().isVisible()) {
-                const box = await inputLoc.first().boundingBox();
-                if (box) {
-                    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-                    await page.mouse.down();
-                    await page.waitForTimeout(50);
-                    await page.mouse.up();
-                    await page.waitForTimeout(400);
+            const inputLocs = page.locator('input[placeholder*="배송 요청사항"]');
+            const count = await inputLocs.count();
+            
+            if (count > 0) {
+                for (let i = 0; i < count; i++) {
+                    const loc = inputLocs.nth(i);
+                    if (await loc.isVisible()) {
+                        await loc.scrollIntoViewIfNeeded();
+                        await page.waitForTimeout(100);
+                        const box = await loc.boundingBox();
+                        if (box) {
+                            await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+                            await page.mouse.down();
+                            await page.waitForTimeout(50);
+                            await page.mouse.up();
+                            await page.waitForTimeout(400);
+                        }
+                        
+                        const opt = page.locator('text="문 앞에 놔주세요"').filter({ state: 'visible' }).first();
+                        if (await opt.isVisible()) {
+                            const optBox = await opt.boundingBox();
+                            if (optBox) {
+                                await page.mouse.move(optBox.x + optBox.width / 2, optBox.y + optBox.height / 2);
+                                await page.mouse.down();
+                                await page.waitForTimeout(50);
+                                await page.mouse.up();
+                            }
+                        }
+                    }
                 }
             } else {
-                const textLoc = page.locator('text="배송 요청사항을 선택해주세요"');
-                if (await textLoc.count() > 0 && await textLoc.first().isVisible()) {
-                    const box = await textLoc.first().boundingBox();
-                    if (box) {
-                        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-                        await page.mouse.down();
-                        await page.waitForTimeout(50);
-                        await page.mouse.up();
-                        await page.waitForTimeout(400);
+                let textLocs = page.locator('text="배송 요청사항을 선택해주세요"');
+                let tCount = await textLocs.count();
+                for (let i = 0; i < tCount; i++) {
+                    const loc = textLocs.nth(i);
+                    if (await loc.isVisible()) {
+                        await loc.scrollIntoViewIfNeeded();
+                        await page.waitForTimeout(100);
+                        const box = await loc.boundingBox();
+                        if (box) {
+                            await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+                            await page.mouse.down();
+                            await page.waitForTimeout(50);
+                            await page.mouse.up();
+                            await page.waitForTimeout(400);
+
+                            const opt = page.locator('text="문 앞에 놔주세요"').filter({ state: 'visible' }).first();
+                            if (await opt.isVisible()) {
+                                const optBox = await opt.boundingBox();
+                                if (optBox) {
+                                    await page.mouse.move(optBox.x + optBox.width / 2, optBox.y + optBox.height / 2);
+                                    await page.mouse.down();
+                                    await page.waitForTimeout(50);
+                                    await page.mouse.up();
+                                }
+                            }
+                        }
                     }
                 }
             }
-
-            const opt = page.locator('text="문 앞에 놔주세요"').filter({ state: 'visible' }).first();
-            if (await opt.isVisible()) {
-                const optBox = await opt.boundingBox();
-                if (optBox) {
-                    await page.mouse.move(optBox.x + optBox.width / 2, optBox.y + optBox.height / 2);
-                    await page.mouse.down();
-                    await page.waitForTimeout(50);
-                    await page.mouse.up();
-                }
-            }
             
-            console.log(`✅ [Action] 배송 요청사항('문 앞에 놔주세요') 하드웨어 정밀 선택 완료`);
+            console.log(`✅ [Action] 배송 요청사항('문 앞에 놔주세요') 모든 필드 하드웨어 정밀 선택 완료`);
         } catch(e) {
             console.log(`⚠️ 배송 요청사항 처리 중 오류 (무시): ${e.message}`);
         }
