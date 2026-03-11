@@ -565,38 +565,71 @@ async function runSniper() {
                 await page.waitForTimeout(800); // 서브 메뉴(카드 리스트) 애니메이션 대기
             }
 
-            // 2. 카드/머니 선택 (사용자 요청: "현전카드 말고 내 카드(2순위) 선택")
-            // 무신사 현대카드는 보통 광고성으로 첫 번째에 위치함
-            // 2. 카드/머니 선택 (사용자 요청: "현전카드 말고 내 카드(2순위) 선택", "3667" 포함 카드)
-            // 무신사 현대카드는 보통 광고성으로 첫 번째에 위치함
-            await page.evaluate(() => {
-                try {
-                    const els = Array.from(document.querySelectorAll('li, div, span, label'));
-
-                    // 1순위: 사용자가 지정한 카드 번호 '3667'이 포함된 요소 찾기
-                    const userCard = els.find(el => el.innerText.includes('3667') && el.offsetParent !== null);
-                    if (userCard) {
-                        userCard.click();
-                        console.log("Matched card 3667");
-                        return;
-                    }
-
-                    // 2순위: 일반적인 카드 리스트에서 광고 제외하고 선택
-                    const cardList = Array.from(document.querySelectorAll('li, div')).filter(el =>
-                        (el.innerText.includes('카드') || el.innerText.includes('머니') || el.querySelector('img')) &&
-                        el.offsetParent !== null
+            // 2. 카드/머니 선택 (사용자 요청: "전체 블록에 마우스를 가져가서 우 버튼 클릭 후 결제하기")
+            console.log(`🖱️ [Action] 등록된 카드 리스트에서 우측 화살표(>)를 클릭하여 사용자의 카드(2순위)로 슬라이드 합니다.`);
+            
+            try {
+                // 1. 카드 블록의 좌표를 얻어 강제로 마우스 Hover 액션을 취합니다.
+                const cardBlockCenter = await page.evaluate(() => {
+                    const els = Array.from(document.querySelectorAll('div, li, label'));
+                    // 무신사페이 영역 힌트: '무신사 현대카드', '할인', '혜택 받기' 등이 적힌 블록
+                    const cardArea = els.find(el => 
+                        (el.innerText.includes('무신사 현대카드') || el.innerText.includes('혜택 받기')) 
+                        && el.getBoundingClientRect().width > 100
                     );
-
-                    // '무신사 현대카드' 텍스트가 포함된 첫 번째 요소는 건너뜀 (광고/프로모션)
-                    const actualCards = cardList.filter(el => !el.innerText.includes('현대카드'));
-
-                    if (actualCards.length > 0) {
-                        actualCards[0].click(); // 프로모션 제외 첫 번째 실제 카드 클릭
-                    } else if (cardList.length > 1) {
-                        cardList[1].click(); // 무엇이든 두 번째 요소 클릭 (사용자 요청 반영)
+                    if (cardArea) {
+                        const rect = cardArea.getBoundingClientRect();
+                        return { x: rect.x + (rect.width / 2), y: rect.y + (rect.height / 2) };
                     }
-                } catch (e) { }
-            });
+                    return null;
+                });
+
+                if (cardBlockCenter) {
+                    await page.mouse.move(cardBlockCenter.x, cardBlockCenter.y);
+                    await page.waitForTimeout(600); // UI 화살표 등장 애니메이션 대기
+                    
+                    // 2. 우측(>) 이동 화살표 버튼 탐색 후 클릭
+                    const nextClicked = await page.evaluate(() => {
+                        const buttons = Array.from(document.querySelectorAll('button'));
+                        // 우측 방향성을 나타내는 클래스명이 있거나, 텍스트가 비어있고 svg/img만 있는 버튼 중 시각적으로 우측에 있는 것 추론
+                        const nextBtn = buttons.find(b => {
+                            if (b.offsetParent === null) return false;
+                            const cls = (b.className || '').toLowerCase();
+                            const aria = (b.getAttribute('aria-label') || '').toLowerCase();
+                            if (cls.includes('next') || cls.includes('right') || aria.includes('다음') || aria.includes('next')) return true;
+                            
+                            // 보통 화살표 버튼은 내부에 svg를 포함하고 텍스트가 없음.
+                            if (b.querySelector('svg') && !b.innerText.trim()) {
+                                // 우측에 위치하는지 대략적인 검사
+                                const rect = b.getBoundingClientRect();
+                                return rect.right > (window.innerWidth / 2) && rect.width < 100 && rect.width > 10; 
+                            }
+                            return false;
+                        });
+
+                        if (nextBtn) {
+                            nextBtn.click();
+                            return true;
+                        }
+                        return false;
+                    });
+                    
+                    if (nextClicked) {
+                        console.log(`✅ [Action] 다음(>) 카드 보기 버튼 클릭 완료!`);
+                        await page.waitForTimeout(600); // 카드가 슬라이드되는 애니메이션 대기
+                        
+                        // 슬라이드 후 명시적으로 두번째 카드를 클릭해야 선택되는 구조인지 대비 (일단 화면 중앙 클릭 시도)
+                        await page.mouse.click(cardBlockCenter.x, cardBlockCenter.y).catch(()=>{});
+                        await page.waitForTimeout(300);
+                    } else {
+                        console.log(`⚠️ 우측 이동 버튼을 찾지 못했습니다.`);
+                    }
+                } else {
+                    console.log(`⚠️ 카드 렌더링 영역(전체 블록)을 페이지에서 찾지 못했습니다.`);
+                }
+            } catch (e) {
+                console.log(`⚠️ 카드 자동 슬라이드 중 오류: ${e.message}`);
+            }
 
             // 3. 최종 결제 버튼 클릭 (가장 중요)
             const payButtonSelectors = [
@@ -852,7 +885,68 @@ async function runGhost() {
             if (!payOk) payOk = await findAndClickMethod(CONFIG.PAYMENT_METHOD, true);
             if (!payOk) payOk = await findAndClickMethod('MUSINSA PAY', true);
 
-            if (payOk) console.log("✅ 결제 수단 선택 완료");
+            if (payOk) {
+                console.log("✅ 결제 수단 선택 완료");
+                await page.waitForTimeout(800); // 서브 메뉴(카드 리스트) 애니메이션 대기
+            }
+
+            // 2. 카드/머니 선택 (사용자 요청: "전체 블록에 마우스를 가져가서 우 버튼 클릭 후 결제하기")
+            console.log(`🖱️ [Action] 등록된 카드 리스트에서 우측 화살표(>)를 클릭하여 사용자의 카드(2순위)로 슬라이드 합니다.`);
+            
+            try {
+                const cardBlockCenter = await page.evaluate(() => {
+                    const els = Array.from(document.querySelectorAll('div, li, label'));
+                    const cardArea = els.find(el => 
+                        (el.innerText.includes('무신사 현대카드') || el.innerText.includes('혜택 받기')) 
+                        && el.getBoundingClientRect().width > 100
+                    );
+                    if (cardArea) {
+                        const rect = cardArea.getBoundingClientRect();
+                        return { x: rect.x + (rect.width / 2), y: rect.y + (rect.height / 2) };
+                    }
+                    return null;
+                });
+
+                if (cardBlockCenter) {
+                    await page.mouse.move(cardBlockCenter.x, cardBlockCenter.y);
+                    await page.waitForTimeout(600);
+                    
+                    const nextClicked = await page.evaluate(() => {
+                        const buttons = Array.from(document.querySelectorAll('button'));
+                        const nextBtn = buttons.find(b => {
+                            if (b.offsetParent === null) return false;
+                            const cls = (b.className || '').toLowerCase();
+                            const aria = (b.getAttribute('aria-label') || '').toLowerCase();
+                            if (cls.includes('next') || cls.includes('right') || aria.includes('다음') || aria.includes('next')) return true;
+                            
+                            if (b.querySelector('svg') && !b.innerText.trim()) {
+                                const rect = b.getBoundingClientRect();
+                                return rect.right > (window.innerWidth / 2) && rect.width < 100 && rect.width > 10; 
+                            }
+                            return false;
+                        });
+
+                        if (nextBtn) {
+                            nextBtn.click();
+                            return true;
+                        }
+                        return false;
+                    });
+                    
+                    if (nextClicked) {
+                        console.log(`✅ [Action] 다음(>) 카드 보기 버튼 클릭 완료!`);
+                        await page.waitForTimeout(600);
+                        await page.mouse.click(cardBlockCenter.x, cardBlockCenter.y).catch(()=>{});
+                        await page.waitForTimeout(300);
+                    } else {
+                        console.log(`⚠️ 우측 이동 버튼을 찾지 못했습니다.`);
+                    }
+                } else {
+                    console.log(`⚠️ 카드 렌더링 영역(전체 블록)을 페이지에서 찾지 못했습니다.`);
+                }
+            } catch (e) {
+                console.log(`⚠️ 카드 자동 슬라이드 중 오류: ${e.message}`);
+            }
 
             const payButtonSelectors = [
                 "button:has-text('결제하기')",
