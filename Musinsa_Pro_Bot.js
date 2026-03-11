@@ -518,53 +518,49 @@ async function runSniper() {
 
         await page.waitForLoadState('networkidle').catch(() => { }); // 네트워크 안정화 대기
 
-        console.log(`📦 [Action] 배송 요청사항 내부 State 강제 주입 개시...`);
+        // [추가] 브라우저 콘솔 및 에러 실시간 터미널 중계 (사용자 요청 디버깅)
+        page.on('console', msg => {
+            const text = msg.text();
+            if (text.includes('error') || text.includes('valid') || text.includes('order')) {
+                console.log(`🌐 [Browser Log] ${text}`);
+            }
+        });
+        page.on('pageerror', err => console.log(`🛑 [Browser Error] ${err.message}`));
+
+        console.log(`📦 [Action] 배송 요청사항 하이재킹 타격 개시...`);
         try {
-            // 1. React/Vue 내부 상태 강제 업데이트 (가장 강력한 우회)
+            // [더 공격적인 주입] 모든 이벤트를 순차적으로 발생시켜 React를 속입니다.
             await page.evaluate(() => {
-                const inputs = document.querySelectorAll('input[placeholder*="배송 요청사항"]');
-                inputs.forEach(input => {
+                const targets = [
+                    ...document.querySelectorAll('input[placeholder*="배송"]'),
+                    ...document.querySelectorAll('input[title*="배송"]'),
+                    ...document.querySelectorAll('input[value=""]')
+                ].filter(el => el.offsetParent !== null); // 화면에 보이는 것만
+
+                targets.forEach(input => {
                     try {
-                        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
-                        nativeInputValueSetter.call(input, "문 앞에 놔주세요");
+                        input.focus();
+                        const nativeSet = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+                        nativeSet.call(input, "문 앞에 놔주세요");
+                        
+                        // React/Vue 등의 상태 변화 감지 이벤트 콤보
                         input.dispatchEvent(new Event('input', { bubbles: true }));
                         input.dispatchEvent(new Event('change', { bubbles: true }));
+                        input.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }));
+                        input.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'Enter' }));
+                        input.blur(); // 입력 완료 신호
                     } catch(e) {}
                 });
             });
+            await page.waitForTimeout(500);
 
-            // 2. 시각적 UI 일치화 (단순 강제 클릭)
-            const locs = page.locator('input[placeholder*="배송 요청사항"]');
-            const count = await locs.count();
-            if (count > 0) {
-                for(let i=0; i<count; i++) {
-                    if(await locs.nth(i).isVisible()) {
-                        await locs.nth(i).click({force: true}).catch(()=>{});
-                        await page.waitForTimeout(300);
-                        const opt = page.locator('text="문 앞에 놔주세요"').filter({ state: 'visible' }).first();
-                        if (await opt.isVisible()) {
-                            await opt.click({ force: true }).catch(()=>{});
-                            await page.waitForTimeout(300);
-                        }
-                    }
-                }
-            } else {
-                const textLocs = page.locator('text="배송 요청사항을 선택해주세요"');
-                const tCount = await textLocs.count();
-                for(let i=0; i<tCount; i++) {
-                    if(await textLocs.nth(i).isVisible()) {
-                        await textLocs.nth(i).click({force: true}).catch(()=>{});
-                        await page.waitForTimeout(300);
-                        const opt = page.locator('text="문 앞에 놔주세요"').filter({ state: 'visible' }).first();
-                        if (await opt.isVisible()) {
-                            await opt.click({ force: true }).catch(()=>{});
-                            await page.waitForTimeout(300);
-                        }
-                    }
-                }
+            // [UI 보조] 실제 모달이 떠 있을 경우를 위해 옵션 클릭 병행
+            const opt = page.locator('text="문 앞에 놔주세요"').filter({ state: 'visible' }).first();
+            if (await opt.isVisible()) {
+                await opt.click({ force: true, timeout: 500 }).catch(()=>{});
             }
             
-            console.log(`✅ [Action] 배송 요청사항('문 앞에 놔주세요') 내부 Validation 완벽 통과 설정 완료!`);
+            console.log(`✅ [Action] 배송 요청사항 내부 유효성 강제 통과 완료`);
         } catch(e) {
             console.log(`⚠️ 배송 요청사항 처리 중 오류 (무시): ${e.message}`);
         }
@@ -690,19 +686,20 @@ async function runSniper() {
                 "form[name='orderForm'] button[type='submit']"
             ];
 
-            // [2차 검증 보험] 카드 선택이나 드래그 후 배송 요청사항이 날아가는 것을 방지하기 위해 최종 클릭 직전 재주입
+            // [보험] 결제 버튼 누르기 직전 최종 재방어
             await page.evaluate(() => {
-                const inputs = document.querySelectorAll('input[placeholder*="배송 요청사항"]');
+                const inputs = document.querySelectorAll('input[placeholder*="배송"]');
                 inputs.forEach(input => {
                     try {
                         const nativeSet = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
                         nativeSet.call(input, "문 앞에 놔주세요");
                         input.dispatchEvent(new Event('input', { bubbles: true }));
                         input.dispatchEvent(new Event('change', { bubbles: true }));
+                        input.blur();
                     } catch(e) {}
                 });
             });
-            await page.waitForTimeout(300); // 반영될 아주 짧은 찰나의 시간 대기
+            await page.waitForTimeout(300);
 
             let clicked = false;
             // 여러 셀렉터로 순회하며 클릭 시도 (연타 방지 및 정확도 향상)
