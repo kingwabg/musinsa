@@ -591,11 +591,14 @@ async function runSniper() {
                         return true;
                     }
                     return false;
+                }).catch(e => {
+                    console.log(`⚠️ 우측 이동 버튼 탐색 중 DOM 변경됨 (무시)`);
+                    return false;
                 });
                 
                 if (nextClicked) {
                     console.log(`✅ [Action] 다음(>) 카드 보기 버튼 초고속 하이재킹 클릭 완료!`);
-                    await page.waitForTimeout(50); // 최소 DOM 반영 대기 (애니메이션 렌더링 무시)
+                    await page.waitForTimeout(100).catch(()=>{}); // DOM 렌더링 최소 대기 (오류 방지)
                     
                     // 두 번째 요소(내 카드) 강제 클릭
                     await page.evaluate(() => {
@@ -606,6 +609,8 @@ async function runSniper() {
                         if (cardList.length > 0) {
                             cardList[0].click(); // 현대카드 제외 첫번째 카드 클릭
                         }
+                    }).catch(e => {
+                        console.log(`⚠️ 카드 터치 중 DOM 렌더링 지연됨 (무시)`);
                     });
                 } else {
                     console.log(`⚠️ 우측 이동 버튼을 찾지 못했습니다.`);
@@ -898,11 +903,14 @@ async function runGhost() {
                         return true;
                     }
                     return false;
+                }).catch(e => {
+                    console.log(`⚠️ 우측 버튼 스캔 중 DOM 재렌더링 발생 (무시)`);
+                    return false;
                 });
                 
                 if (nextClicked) {
                     console.log(`✅ [Action] 다음(>) 카드 보기 버튼 초고속 하이재킹 클릭 완료!`);
-                    await page.waitForTimeout(50); // 최소 DOM 반영 대기
+                    await page.waitForTimeout(100).catch(()=>{}); // 최소 DOM 반영 대기
                     
                     await page.evaluate(() => {
                         const cardList = Array.from(document.querySelectorAll('li, div')).filter(el =>
@@ -912,6 +920,8 @@ async function runGhost() {
                         if (cardList.length > 0) {
                             cardList[0].click();
                         }
+                    }).catch(e => {
+                        console.log(`⚠️ 두 번째 카드 클릭 포커스 중 렌더링 지연 (무시)`);
                     });
                 } else {
                     console.log(`⚠️ 우측 이동 버튼을 찾지 못했습니다.`);
